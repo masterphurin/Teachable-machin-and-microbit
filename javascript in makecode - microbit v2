@@ -1,0 +1,15 @@
+serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
+    let cmd = serial.readLine().trim();
+if (cmd == "letf") {
+        basic.showArrow(ArrowNames.West)
+    } else if (cmd == "right") {
+        basic.showArrow(ArrowNames.East)
+    } else if (cmd == "like") {
+        basic.showArrow(ArrowNames.North)
+    } else if (cmd == "bad") {
+        basic.showArrow(ArrowNames.South)
+    } else {
+        basic.clearScreen()
+    }
+})
+serial.redirectToUSB()
