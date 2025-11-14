@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="th">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teachable Machine + Micro:bit</title>
+  <script src="/_sdk/element_sdk.js"></script><!-- Required TensorFlow and Teachable Machine libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.14.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <style>
+body {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0c0c1e 0%, #1a1a3e 25%, #2d1b69 50%, #1a1a3e 75%, #0c0c1e 100%);
+    min-height: 100vh;     /* ⭐ แก้จาก 100% → 100vh */
+    overflow-x: hidden;
+    position: relative;
+    color: #ffffff;
+
+    background-attachment: fixed;   /* ⭐ ป้องกันพื้นหลังแบ่งครึ่ง */
+}
+
+/* Animated starfield background */
+.starfield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;        /* ⭐ แก้จาก 100% → 100vh */
+    z-index: -1;
+    pointer-events: none; /* ⭐ ป้องกันไม่ให้บังการคลิก */
+}
+
+.star {
+    position: absolute;
+    background: #ffffff;
+    border-radius: 50%;
+    animation: twinkle 3s infinite ease-in-out;
+}
+
+.star:nth-child(odd) {
+    animation-delay: 1.5s;
+}
+
+.star:nth-child(3n) {
+    background: #64b5f6;
+}
+
+.star:nth-child(5n) {
+    background: #81c784;
+}
+
+.star:nth-child(7n) {
+    background: #ffb74d;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Floating particles */
+.particle {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 8s infinite linear;
+}
+
+@keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+/* Main container */
+.container {
+    position: relative;
+    z-index: 1;
+    padding: 2rem;
+    text-align: center;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Glowing title */
+h1 {
+    font-size: 3rem;
+    font-weight: bold;
+    background: linear-gradient(45deg, #64b5f6, #81c784, #ffb74d, #f06292);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 4s ease-in-out infinite, glow 2s ease-in-out infinite alternate;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes glow {
+    from { filter: drop-shadow(0 0 20px rgba(100, 181, 246, 0.7)); }
+    to { filter: drop-shadow(0 0 40px rgba(129, 199, 132, 0.7)); }
+}
+
+/* Futuristic button */
+.connect-btn {
+    background: linear-gradient(45deg, #1e3c72, #2a5298);
+    border: 2px solid #64b5f6;
+    color: #ffffff;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    margin-bottom: 2rem;
+    box-shadow: 0 0 30px rgba(100, 181, 246, 0.3);
+}
+
+.connect-btn:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.connect-btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 40px rgba(100, 181, 246, 0.6);
+    border-color: #81c784;
+}
+
+.connect-btn:hover:before {
+    left: 100%;
+}
+
+.connect-btn:active {
+    transform: translateY(-2px);
+}
+
+/* Webcam container */
+#webcam-container {
+    margin: 2rem 0;
+    position: relative;
+    display: inline-block;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 0 50px rgba(100, 181, 246, 0.4);
+    border: 2px solid rgba(100, 181, 246, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+#webcam-container:empty {
+    width: 300px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.1rem;
+}
+
+#webcam-container:empty:before {
+    content: '🌌 Camera will appear here';
+}
+
+/* Status label */
+#label {
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 1rem 2rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    border: 1px solid rgba(100, 181, 246, 0.3);
+    backdrop-filter: blur(10px);
+    animation: pulse 2s ease-in-out infinite;
+    margin-top: 1rem;
+    min-width: 200px;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 20px rgba(100, 181, 246, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(129, 199, 132, 0.5); }
+    100% { box-shadow: 0 0 20px rgba(100, 181, 246, 0.3); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    .connect-btn {
+        font-size: 1rem;
+        padding: 0.8rem 1.5rem;
+    }
+
+    #label {
+        font-size: 1.2rem;
+    }
+}
+
+/* Loading animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #64b5f6;
+    animation: spin 1s ease-in-out infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="starfield" id="starfield"></div>
+  <div class="container">
+   <h1>🌌 Teachable Machine + Micro:bit 🚀</h1><button class="connect-btn" onclick="connectMicrobit()"> 🔌 Connect micro:bit </button>
+   <div id="webcam-container"></div>
+   <p id="label">🌟 Waiting for connection... </p>
+  </div>
+  <script>
+        function createStarfield() {
+            const starfield = document.getElementById('starfield');
+            const numberOfStars = 100;
+            
+            for (let i = 0; i < numberOfStars; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // Random size and position
+                const size = Math.random() * 3 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                
+                // Random animation duration
+                star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                
+                starfield.appendChild(star);
+            }
+        }
+
+        // Create floating particles
+        function createParticles() {
+            setInterval(() => {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                const size = Math.random() * 5 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = (Math.random() * 5 + 5) + 's';
+                
+                document.body.appendChild(particle);
+                
+                // Remove particle after animation
+                setTimeout(() => {
+                    if (particle.parentNode) {
+                        particle.parentNode.removeChild(particle);
+                    }
+                }, 8000);
+            }, 300);
+        }
+
+        // Update label with galaxy-themed messages
+        function updateLabel(message) {
+            const label = document.getElementById('label');
+            label.innerHTML = message;
+        }
+
+        // Enhanced connect function with visual feedback
+        function connectMicrobit() {
+            const button = document.querySelector('.connect-btn');
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = '🌌 Connecting... <span class="loading"></span>';
+            button.disabled = true;
+            
+            updateLabel('🚀 Establishing galactic connection...');
+            
+            // Simulate connection process
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+                updateLabel('✨ Ready to explore the cosmos!');
+            }, 2000);
+            
+            // Add your actual micro:bit connection code here
+            // This is where the original script.js functionality would go
+        }
+
+        // Initialize animations when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            createStarfield();
+            createParticles();
+        });
+
+        // Add some interactivity to the webcam container
+        document.getElementById('webcam-container').addEventListener('click', function() {
+            updateLabel('🎥 Camera interface activated!');
+        });
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99e54e9ee296a8cf',t:'MTc2MzExMDcwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+    <script src="script.js"></script>
+ </html>
